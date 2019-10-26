@@ -1,0 +1,6 @@
+--- null indicate to use all nodes and relationships
+
+call algo.pageRank.stream(null, null, {direction: "BOTH"})
+yield nodeId, score
+return algo.getNodeById(nodeId), score
+order by score desc

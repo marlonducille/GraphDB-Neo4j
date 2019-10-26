@@ -1,0 +1,15 @@
+Link Prediction is used by Facebook. e.g. if A is a friend of B and C; and T is also a friend of B and C; we can predict and suggest T to be a friend of A.
+
+louvain algorithm is used to detect community, i.e. we can check if A and B belongs in the same group or cluster. This can be determined by how close they are together, etc
+
+-----
+// call the louvain algorithm on all the nodes, and stored the result back in a variable call, 'louv'
+call algo.louvain(null, null, {write:true, writeProperty:'louv'})
+yield nodes, communityCount
+
+-----
+// now use link prediction to check if node 3 and 34 belongs in the same group or community.
+match (p1:Person {pId: 3})
+match (p2:Person {pId: 34})
+return algo.linkprediction.sameCommunity(p1, p2, 'louv') as score
+

@@ -1,0 +1,14 @@
+
+
+1. Open Neo4j Desktop
+
+2. Click on 'Add Graph'
+
+3. Click Manage --> Plugin --> Instakk Graph Algorithms
+
+4. Click on 'Terminal' tab , and type
+
+C:\Users\Karen\.Neo4jDesktop\neo4jDatabases\database-2fa147df-9d99-4a48-b992-cd326768df6f\installation-3.5.9>cd bin 
+
+C:\Users\Karen\.Neo4jDesktop\neo4jDatabases\database-2fa147df-9d99-4a48-b992-cd326768df6f\installation-3.5.9\bin> neo
+4j-admin import --nodes "../import/nodes_ALL.csv" --relationships "../import/relations_ALL.csv"

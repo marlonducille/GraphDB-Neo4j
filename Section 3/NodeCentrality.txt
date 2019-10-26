@@ -1,0 +1,33 @@
+------- For each node, count all the incoming and outgoing relationship
+-- This indicate which node is the most interesting (important) node, i.e. 
+-- the one with the most connections between them
+--- this return the node (n), and the count of relationships to and from that node (c)
+
+match(n)-[r]-()
+with n, count(r) as c
+return n, c
+order by c desc
+
+------
+-- find the most important node in terms of closeness
+
+call algo.closeness.stream(null, null)
+yield nodeId, centrality
+return algo.getNodeById(nodeId).pId as node, centrality
+order by centrality desc
+limit 10
+
+------------------
+-- null - means use all the nodes and relationships in the graph
+-- write the result back in the graph in a property called bwn
+
+call algo.betweenness(null, null, {direction:"BOTH", writeProperty: "bwn"})
+yield nodes, minCentrality, maxCentrality, sumCentrality, loadMillis, computeMillis, writeMillis
+
+-----------------
+
+match(n)
+where n.dep = 38 or n.dep = 2 or n.dep = 20
+return n.pId, n.bwn
+order by n.bwn desc
+limit 10

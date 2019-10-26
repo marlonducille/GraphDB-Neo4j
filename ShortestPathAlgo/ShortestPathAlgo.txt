@@ -1,0 +1,139 @@
+with [
+	 ["A", "B", 10], // path from point A to B is 10miles
+	 ["A", "C", 33],
+	 ["A", "D", 35],
+	 ["C", "D", 28],
+	 ["B", "C",20],
+	 ["C", "E", 6],
+	 ["D", "E", 40]
+] AS nested
+unwind nested as row
+merge(n:City {name:row[0]})
+merge(m:City {name:row[1]})
+merge(n)-[r:ROAD {distance:row[2]}]->(m)
+
+match(n) 
+return n
+
+
+------- Dijkstra-algorithm ----------
+-- find shortest distance betw A and E
+match (A:City {name:"A"})
+match (E:City {name:"E"})
+call algo.shortestPath.stream(A, E, "distance") // "distance" is the attribute of the relationship
+yield nodeId, cost
+return algo.getNodeById(nodeId), cost
+
+------------------
+-- find shortest distance betw A and all other node in the graph
+match(A:Node {name:"A"})
+call algo.shortestPath.deltaStepping.stream(A, "distance", 1.0)
+yield nodeId, distance
+where algo.isFinite(distance)
+return algo.getNodeById(nodeId).name as end, distance
+order by distance
+
+------------
+-- The train route will now be choosen as the shortest path
+match(A:City {name:"A"})
+match(E:City {name:"E"})
+create (A)-[:TRAIN {distance:20}]->(E)
+
+---------------
+-- find shortest path by "ROAD", i.e we are using car
+-- relationshipQuery: "ROAD" tells neo4j which relationship to use,
+-- so we use relationship of type, 'ROAD'
+-- nodeQuery: "City" tells neo4j to use node, labelled as 'City'
+
+match (A:City {name:"A"})
+match (E:City {name:"E"})
+call algo.shortestPath.stream(A, E, "distance", {nodeQuery: "City", relationshipQuery: "ROAD"})
+yield nodeId, cost
+return algo.getNodeById(nodeId), cost
+
+-----------
+// if the road betw B and C is closed
+match (:City{name:"B"})-[r:ROAD]->(:City{name:"C"})
+set r.closed = true
+
+-----
+-- match(n)-[r:ROAD]-(m) is matching all the relationship of type, 'ROAD'
+-- the 'where' bit now excludes those relationships that have 'closed' property.
+
+match (A:City {name:"A"})
+match (E:City {name:"E"})
+call algo.shortestPath.stream(A, E, "distance", {nodeQuery:'match(n:City) return id(n) as id',
+relationshipQuery:'match(n)-[r:ROAD]-(m) where (r.closed IS NULL) OR r.closed = false RETURN
+id(n) as source, id(m) as target, r.distance as weight', graph:"cypher"})
+yield nodeId, cost
+return algo.getNodeById(nodeId), cost
+
+----
+-- write a 'cost' property
+-- writeProperty:"cost". This specify which node property (in this case, cost), the result will be stored
+
+match(A:City {name:"A"})
+match(E:City {name:"E"})
+call algo.shortestPath(A, E, "distance", {writeProperty:"cost"})
+yield nodeCount, totalCost, loadMillis, evalMillis, writeMillis
+return nodeCount, totalCost, loadMillis, evalMillis, writeMillis
+
+-----
+-- write the result of the non-closed road into the 'cost2' property
+-- "weight" is the 3rd parameter in algo.shortestPath, since r.distance is aliased as weight
+-- 'City' is the label for the node. The 'A:' and 'E:' can be called anything. It's just like an alias,
+-- which we can use elsewhere, like in the shortestPath.stream function
+match(A:City {name:"A"})
+match(E:City {name:"E"})
+call algo.shortestPath(A, E, "weight", {
+	writeProperty:"cost2",
+    nodeQuery:'match(n:City) return id(n) as id',
+	relationshipQuery:'match(n)-[r:ROAD]-(m) where (r.closed IS NULL) OR r.closed = false RETURN
+	id(n) as source, id(m) as target, r.distance as weight', graph:"cypher"
+	})
+yield nodeCount, totalCost, loadMillis, evalMillis, writeMillis
+return nodeCount, totalCost, loadMillis, evalMillis, writeMillis
+
+------
+-- match (current)-[r:ROAD]->(next). This select the relationship between the current node and the next one
+-- return only the nodes(current and next) and the selected relationship betw them , r
+
+match(n:City)
+where n.cost2 is not null
+with n
+order by n.cost2
+with collect(n) as path
+unwind range(0, size(path)-1) as index
+with path[index] as current, path[index+1] as next
+match (current)-[r:ROAD]->(next)
+where r.closed is null or r.closed = false
+return current, r, next
+
+---- Find shortest path using paramenters instead of hard-coding the start and end points
+-- set the start as parameter
+:param start => "Louvre-Rivoli"
+
+-- set the end as parameter
+:param end => "Grands Boulevards"
+
+-- now find shortest path between these 2 stations, $start and $end are the parameters
+-- 'Station' is the label for the node. The 'startNode:' can be called anything. It's just like an alias,
+-- which we can use elsewhere, like in the shortestPath.stream function
+match(startNode:Station {name:$start})
+match(endNode:Station {name:$end})
+call algo.shortestPath.stream(startNode, endNode, 'time')
+yield nodeId, cost
+return algo.getNodeById(nodeId), cost
+
+
+--------------
+-- find the first 3 shortest path
+
+match(A:Node {name:"A"})
+match(E:Node {name:"E"})
+call algo.kShortestPaths(A, E, 3, "distance", {})
+yield resultCount
+return resultCount
+
+match(n:Node)
+return n
